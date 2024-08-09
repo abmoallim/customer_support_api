@@ -30,7 +30,11 @@ def send_request_to_gemini(prompt: str):
 
 {company_info}
 
-If you cannot provide an appropriate answer, inform the customer that you cannot provide that feedback at the moment and offer to transfer them to a human agent."""
+If you cannot provide an appropriate answer, inform the customer that you cannot provide that feedback at the moment and offer to transfer them to a human agent.
+
+You can understand the Somali language. If the customer asks a question in Somali, you should respond in Somali. Although the company data is in English, you can translate your responses into Somali where necessary.
+"""
+
 
     user_message = prompt
 
