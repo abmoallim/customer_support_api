@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+import openai
 
 # Load environment variables
 load_dotenv()
@@ -23,17 +23,17 @@ app.add_middleware(
 class SupportRequest(BaseModel):
     prompt: str
 
-# Configure the Google Gemini API
-genai.configure(api_key=os.getenv("API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-pro-exp-0801')
+# Configure the OpenAI API
+# openai.api_key = os.getenv("API_KEY")
+client = openai.OpenAI(api_key=os.getenv("API_KEY"))
 
 def read_company_info():
     """Read company information from data.txt file."""
     with open("data.txt", "r") as file:
         return file.read()
-
-async def send_request_to_gemini(prompt: str):
-    """Generate a response using the Gemini model with streaming."""
+    
+async def send_request_to_openai(prompt: str):
+    """Generate a response using the OpenAI GPT-4 model with streaming."""
     company_info = read_company_info()
     
     system_message = f"""You are the best customer support AI. Use the following company information to assist customers:
@@ -44,24 +44,35 @@ If you cannot provide an appropriate answer, inform the customer that you cannot
 
 You can understand the Somali language. If the customer asks a question in Somali, you should respond in Somali. Although the company data is in English, you can translate your responses into Somali where necessary.
 If the customer asks a question that is not related to the company, you should respond with "I'm sorry, I can only assist with questions related to the company."
-if the customer speakes in Somali, you should respond in Somali Only with out you adding engish.
+If the customer speaks in Somali, you should respond in Somali Only without adding English.
 """
 
-    user_message = prompt
-    message = f"{system_message}\n\nCustomer: {user_message}\n\nAI:"
-
-    response = model.generate_content(message, stream=True)
-
     async def generate():
-        for chunk in response:
-            yield f"data: {chunk.text}\n\n"
+
+        stream = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            stream=True
+        )
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                if content.startswith(' '):
+                    yield f"data: {content}\n\n"
+                else:
+                    yield f"data: {' ' + content}\n\n"
+
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 @app.post("/api/v1/customer-support")
 async def customer_support(request: SupportRequest):
     """Endpoint to handle customer support requests."""
     try:
-        return await send_request_to_gemini(request.prompt)
+        return await send_request_to_openai(request.prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
