@@ -43,6 +43,8 @@ async def send_request_to_gemini(prompt: str):
 If you cannot provide an appropriate answer, inform the customer that you cannot provide that feedback at the moment and offer to transfer them to a human agent.
 
 You can understand the Somali language. If the customer asks a question in Somali, you should respond in Somali. Although the company data is in English, you can translate your responses into Somali where necessary.
+If the customer asks a question that is not related to the company, you should respond with "I'm sorry, I can only assist with questions related to the company."
+if the customer speakes in Somali, you should respond in Somali Only with out you adding engish.
 """
 
     user_message = prompt
