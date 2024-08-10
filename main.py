@@ -52,7 +52,8 @@ You can understand the Somali language. If the customer asks a question in Somal
 
     async def generate():
         for chunk in response:
-            yield f"data: {chunk.text}\n\n"
+            yield f"{chunk.text}\n\n"
+            
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
