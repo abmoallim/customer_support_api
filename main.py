@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import requests
-from dotenv import load_dotenv
+from fastapi.responses import StreamingResponse
 import os
+from dotenv import load_dotenv
 import google.generativeai as genai
 
 # Load environment variables
@@ -25,15 +25,15 @@ class SupportRequest(BaseModel):
 
 # Configure the Google Gemini API
 genai.configure(api_key=os.getenv("API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.5-pro-exp-0801')
 
 def read_company_info():
     """Read company information from data.txt file."""
     with open("data.txt", "r") as file:
         return file.read()
 
-def send_request_to_gemini(prompt: str):
-    """Generate a response using the Gemini model."""
+async def send_request_to_gemini(prompt: str):
+    """Generate a response using the Gemini model with streaming."""
     company_info = read_company_info()
     
     system_message = f"""You are the best customer support AI. Use the following company information to assist customers:
@@ -45,15 +45,21 @@ If you cannot provide an appropriate answer, inform the customer that you cannot
 You can understand the Somali language. If the customer asks a question in Somali, you should respond in Somali. Although the company data is in English, you can translate your responses into Somali where necessary.
 """
 
-
     user_message = prompt
+    message = f"{system_message}\n\nCustomer: {user_message}\n\nAI:"
 
-    response = model.generate_content(f"{system_message}\n\nCustomer: {user_message}\n\nAI:")
-    
-    return response.text
+    response = model.generate_content(message, stream=True)
+
+    async def generate():
+        for chunk in response:
+            yield f"data: {chunk.text}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 @app.post("/api/v1/customer-support")
 async def customer_support(request: SupportRequest):
     """Endpoint to handle customer support requests."""
-    response = send_request_to_gemini(request.prompt)
-    return {"response": response}
+    try:
+        return await send_request_to_gemini(request.prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
